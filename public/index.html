@@ -3,120 +3,479 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Token Helper</title>
+    <title>OAUTH2_OVERRIDE_SYSTEM // TOKEN_EXTRACTOR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #2563eb; --bg: #f3f4f6; }
-        body { font-family: sans-serif; background: var(--bg); display: flex; justify-content: center; padding-top: 50px; margin: 0; }
-        .container { background: #fff; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 400px; }
-        h2 { margin-top: 0; font-size: 1.2rem; color: #1f2937; margin-bottom: 1rem; }
-        .input-group { display: flex; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; margin-bottom: 1rem; }
-        input { flex: 1; padding: 10px; border: none; outline: none; color: #6b7280; text-overflow: ellipsis; }
-        button { cursor: pointer; border: none; font-size: 14px; }
-        .btn-copy { background: #f9fafb; color: var(--primary); padding: 0 15px; font-weight: 500; border-left: 1px solid #e5e7eb; }
-        .btn-copy:hover { background: #eff6ff; }
-        .btn-main { width: 100%; padding: 10px; background: var(--primary); color: white; border-radius: 6px; font-weight: bold; }
-        .btn-main:hover { background: #1d4ed8; }
-        .btn-main:disabled { background: #9ca3af; cursor: not-allowed; }
+        :root {
+            --bg-color: #050505;
+            --panel-color: rgba(20, 20, 20, 0.8);
+            --primary-color: #00f3ff; /* 赛博蓝 */
+            --accent-color: #bc13fe;  /* 霓虹紫 */
+            --success-color: #0aff00; /* 黑客绿 */
+            --text-color: #e0e0e0;
+            --grid-line: rgba(0, 243, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+            background-image: 
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 40px 40px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部导航栏 */
+        header {
+            height: 60px;
+            border-bottom: 1px solid var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            z-index: 10;
+        }
+
+        .brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--primary-color);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--success-color);
+        }
+
+        .blink {
+            width: 10px;
+            height: 10px;
+            background-color: var(--success-color);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--success-color);
+            animation: blink-animation 2s infinite;
+        }
+
+        /* 主体布局 */
+        main {
+            flex: 1;
+            display: flex;
+            padding: 40px;
+            gap: 40px;
+            position: relative;
+        }
+
+        /* 左侧操作区 */
+        .control-panel {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            max-width: 800px;
+        }
+
+        /* 右侧终端日志区 */
+        .terminal-panel {
+            flex: 2;
+            background: #000;
+            border: 1px solid var(--accent-color);
+            border-radius: 4px;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(188, 19, 254, 0.2);
+            position: relative;
+            opacity: 0.9;
+        }
+        
+        .terminal-panel::before {
+            content: "SYSTEM_LOG // OUTPUT_STREAM";
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: var(--accent-color);
+            color: #000;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .log-entry { margin-bottom: 8px; line-height: 1.4; }
+        .log-time { color: #666; margin-right: 10px; }
+        .log-info { color: var(--primary-color); }
+        .log-success { color: var(--success-color); }
+        .log-error { color: #ff0055; }
+        .log-warn { color: #ffae00; }
+
+        /* 区块样式 */
+        section {
+            background: rgba(20, 20, 20, 0.6);
+            border-left: 4px solid var(--primary-color);
+            padding: 25px;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        section:hover {
+            background: rgba(30, 30, 40, 0.8);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+        }
+
+        h2::before {
+            content: '>>';
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+
+        /* 输入框组件 */
+        .input-wrapper {
+            position: relative;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            border-bottom: 2px solid #333;
+            transition: 0.3s;
+        }
+
+        .input-wrapper:focus-within {
+            border-bottom-color: var(--primary-color);
+            box-shadow: 0 5px 10px -5px rgba(0, 243, 255, 0.3);
+        }
+
+        input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: var(--primary-color);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 16px;
+            padding: 10px 0;
+            outline: none;
+        }
+
+        input::placeholder { color: #444; }
+
+        /* 按钮组件 */
+        .btn {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 10px 25px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+            overflow: hidden;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-color);
+            color: #000;
+            box-shadow: 0 0 20px var(--primary-color);
+        }
+
+        .btn:disabled {
+            border-color: #444;
+            color: #444;
+            cursor: not-allowed;
+        }
+
+        .btn-copy {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            font-size: 12px;
+            padding: 5px 15px;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+        
+        .btn-copy:hover {
+            background: var(--accent-color);
+            color: #fff;
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        /* 结果区域 */
+        .result-box {
+            margin-top: 30px;
+            border: 1px dashed var(--success-color);
+            padding: 20px;
+            background: rgba(10, 255, 0, 0.05);
+        }
+
+        /* 底部装饰 */
+        footer {
+            height: 30px;
+            background: #000;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 10px;
+            color: #555;
+            z-index: 10;
+        }
+
+        /* 动画 */
+        @keyframes blink-animation {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        /* 扫描线效果 overlay */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            main { flex-direction: column; padding: 20px; overflow-y: auto; }
+            .terminal-panel { min-height: 200px; }
+            body { overflow: auto; }
+        }
+        
         .hidden { display: none; }
-        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 8px 16px; border-radius: 4px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-        #toast.show { opacity: 1; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>1. 获取授权链接</h2>
-    <button id="genBtn" class="btn-main">生成链接</button>
-    <div id="linkArea" class="input-group hidden" style="margin-top: 10px;">
-        <input type="text" id="authUrl" readonly>
-        <button class="btn-copy" onclick="copy('authUrl')">复制</button>
-    </div>
+    <div class="scanlines"></div>
 
-    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-
-    <h2>2. 提取 Refresh Token</h2>
-    <div class="input-group">
-        <input type="text" id="callbackUrl" placeholder="粘贴浏览器跳转后的完整 URL...">
-        <button class="btn-copy" onclick="document.getElementById('callbackUrl').value=''">清空</button>
-    </div>
-    <button id="extractBtn" class="btn-main">获取 Token</button>
-
-    <div id="resultArea" class="hidden" style="margin-top: 20px;">
-        <div class="input-group">
-            <input type="text" id="refreshToken" readonly placeholder="Refresh Token">
-            <button class="btn-copy" onclick="copy('refreshToken')">复制</button>
+    <header>
+        <div class="brand">TOKEN_EXTRACTOR <span style="font-size:0.5em; opacity:0.7">v2.0.45</span></div>
+        <div class="status-indicator">
+            SYSTEM ONLINE <div class="blink"></div>
         </div>
-        </div>
-</div>
+    </header>
 
-<div id="toast">已复制</div>
-
-<script>
-    let sessionId = localStorage.getItem('oauth_session_id');
-
-    function showToast(msg) {
-        const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2000);
-    }
-    function copy(id) {
-        const el = document.getElementById(id); el.select();
-        navigator.clipboard.writeText(el.value).then(() => showToast('复制成功'));
-    }
-
-    document.getElementById('genBtn').onclick = async () => {
-        try {
-            const res = await fetch('/api/generate-auth-url', { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                document.getElementById('authUrl').value = data.data.authUrl;
-                document.getElementById('linkArea').classList.remove('hidden');
-                sessionId = data.data.sessionId;
-                localStorage.setItem('oauth_session_id', sessionId);
-            }
-        } catch(e) { alert('生成失败'); }
-    };
-
-    document.getElementById('extractBtn').onclick = async () => {
-        const urlStr = document.getElementById('callbackUrl').value.trim();
-        if (!urlStr) return alert('请先粘贴链接');
-        
-        try {
-            // 简单清洗，允许用户只粘贴 ?code=... 之后的部分，或者完整 http 开头的链接
-            let code = '';
-            if (urlStr.includes('code=')) {
-                // 如果是完整 URL，尝试解析
-                try {
-                    const url = new URL(urlStr);
-                    code = url.searchParams.get('code');
-                } catch {
-                    // 如果 URL 解析失败，尝试简单截取
-                    const match = urlStr.match(/code=([^&]*)/);
-                    if (match) code = match[1];
-                }
-            } else {
-                // 假设用户直接粘贴了 code
-                code = urlStr;
-            }
-
-            if(!code) return alert('无法从链接中提取 code，请确认链接完整性');
-
-            const res = await fetch('/api/exchange-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, sessionId })
-            });
-            const data = await res.json();
+    <main>
+        <div class="control-panel">
             
-            if (data.success) {
-                document.getElementById('refreshToken').value = data.data.refresh_token;
-                // document.getElementById('accessToken').value = data.data.access_token;
-                document.getElementById('resultArea').classList.remove('hidden');
-                showToast('提取成功');
-            } else {
-                alert('提取失败: ' + data.message);
+            <section id="step1">
+                <h2>STEP 01 // INITIALIZE_AUTH</h2>
+                <div style="display: flex; gap: 20px; align-items: flex-end;">
+                    <button id="genBtn" class="btn">EXECUTE SEQUENCE</button>
+                    <div class="input-wrapper" style="flex: 1; display: none;" id="authUrlWrapper">
+                        <input type="text" id="authUrl" readonly value="">
+                        <button class="btn btn-copy" onclick="copy('authUrl', 'AUTH_URL')">COPY</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="step2">
+                <h2>STEP 02 // INJECT_CALLBACK</h2>
+                <p style="color: #666; font-size: 12px; margin-bottom: 10px;">> WAITING FOR USER INPUT (PASTE FULL URL)...</p>
+                <div class="input-wrapper">
+                    <input type="text" id="callbackUrl" placeholder="Paste localhost URL here...">
+                    <button class="btn btn-copy" onclick="clearInput()">CLEAR</button>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button id="extractBtn" class="btn" style="width: 100%">START EXTRACTION PROCESS</button>
+                </div>
+            </section>
+
+            <section id="resultArea" class="hidden result-box">
+                <h2 style="color: var(--success-color)">>> OPERATION SUCCESSFUL</h2>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; color: var(--success-color);">REFRESH_TOKEN</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="refreshToken" readonly style="color: var(--success-color);">
+                        <button class="btn btn-copy" onclick="copy('refreshToken', 'REFRESH_TOKEN')">COPY</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="terminal-panel" id="terminal">
+            <div class="log-entry">
+                <span class="log-time">[SYSTEM]</span>
+                <span class="log-info">Interface initialized.</span>
+            </div>
+            <div class="log-entry">
+                <span class="log-time">[SYSTEM]</span>
+                <span class="log-info">Connected to server at port 3000.</span>
+            </div>
+            <div class="log-entry">
+                <span class="log-time">[SYSTEM]</span>
+                <span class="log-info">Waiting for user command...</span>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        ZEABUR_DEPLOYMENT // SECURE_CONNECTION // UNAUTHORIZED_ACCESS_PROHIBITED
+    </footer>
+
+    <script>
+        let sessionId = localStorage.getItem('oauth_session_id');
+
+        // 日志系统
+        function log(msg, type = 'info') {
+            const terminal = document.getElementById('terminal');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            const time = new Date().toLocaleTimeString('en-US', {hour12: false});
+            let typeClass = 'log-info';
+            if (type === 'success') typeClass = 'log-success';
+            if (type === 'error') typeClass = 'log-error';
+            if (type === 'warn') typeClass = 'log-warn';
+
+            entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${typeClass}">${msg}</span>`;
+            terminal.appendChild(entry);
+            terminal.scrollTop = terminal.scrollHeight; // Auto scroll
+        }
+
+        function copy(id, name) {
+            const el = document.getElementById(id);
+            el.select();
+            navigator.clipboard.writeText(el.value).then(() => {
+                log(`Clipboard updated: ${name} copied.`, 'success');
+            }).catch(err => {
+                log(`Clipboard error: ${err}`, 'error');
+            });
+        }
+
+        function clearInput() {
+            document.getElementById('callbackUrl').value = '';
+            log('Input field cleared.', 'warn');
+        }
+
+        // 自动检测回调
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('code')) {
+                document.getElementById('callbackUrl').value = window.location.href;
+                log('Callback detected automatically. Ready to extract.', 'success');
+                // 自动触发提取 (可选)
+                // document.getElementById('extractBtn').click();
             }
-        } catch(e) { alert('链接格式错误或网络异常'); }
-    };
-</script>
+        };
+
+        // 生成链接
+        document.getElementById('genBtn').onclick = async () => {
+            const btn = document.getElementById('genBtn');
+            btn.disabled = true;
+            log('Initiating authentication sequence...', 'info');
+
+            try {
+                const res = await fetch('/api/generate-auth-url', { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('authUrl').value = data.data.authUrl;
+                    document.getElementById('authUrlWrapper').style.display = 'flex';
+                    sessionId = data.data.sessionId;
+                    localStorage.setItem('oauth_session_id', sessionId);
+                    
+                    log('Session ID generated: ' + sessionId.substring(0, 8) + '...', 'info');
+                    log('Auth URL generated successfully.', 'success');
+                } else {
+                    log('Server error: ' + data.message, 'error');
+                }
+            } catch(e) { 
+                log('Network connection failed.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        // 提取 Token
+        document.getElementById('extractBtn').onclick = async () => {
+            const urlStr = document.getElementById('callbackUrl').value.trim();
+            if (!urlStr) {
+                log('Error: Callback URL is empty.', 'error');
+                return;
+            }
+            
+            log('Parsing callback data...', 'info');
+            
+            try {
+                let code = '';
+                if (urlStr.includes('code=')) {
+                    try {
+                        const url = new URL(urlStr);
+                        code = url.searchParams.get('code');
+                    } catch {
+                        const match = urlStr.match(/code=([^&]*)/);
+                        if (match) code = match[1];
+                    }
+                } else {
+                    code = urlStr;
+                }
+
+                if(!code) {
+                    log('Error: Invalid auth code format.', 'error');
+                    return;
+                }
+
+                log('Exchanging code for token...', 'info');
+
+                const res = await fetch('/api/exchange-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, sessionId })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('refreshToken').value = data.data.refresh_token;
+                    document.getElementById('resultArea').classList.remove('hidden');
+                    
+                    log('Token exchange successful.', 'success');
+                    log(`User Email: ${data.data.user_email || 'Unknown'}`, 'info');
+                    log('Refresh token secured.', 'success');
+                } else {
+                    log('Exchange failed: ' + data.message, 'error');
+                }
+            } catch(e) { 
+                log('Critical process error: ' + e.message, 'error');
+            }
+        };
+    </script>
 </body>
 </html>

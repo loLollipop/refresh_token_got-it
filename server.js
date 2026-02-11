@@ -1,10 +1,21 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { URL } = require('url');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+const OPENAI_CONFIG = {
+  BASE_URL: process.env.OPENAI_BASE_URL || 'https://auth.openai.com',
+  CLIENT_ID: process.env.OPENAI_CLIENT_ID || 'app_EMoamEEZ73f0CkXaXp7hrann',
+  REDIRECT_URI: process.env.OPENAI_REDIRECT_URI || 'http://localhost:1455/auth/callback',
+  SCOPE: process.env.OPENAI_SCOPE || 'openid profile email offline_access'
+};
+
+const OAUTH_SESSIONS = new Map();
+const SESSION_TTL_MS = 10 * 60 * 1000;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -29,7 +40,7 @@ function readJsonBody(req) {
     req.on('end', () => {
       try {
         resolve(JSON.parse(body || '{}'));
-      } catch (error) {
+      } catch {
         reject(new Error('Invalid JSON body'));
       }
     });
@@ -102,12 +113,22 @@ async function exchangeCodeForToken({ code, codeVerifier, redirectUri, clientId 
 
 async function handleTokenExchange(req, res) {
   try {
-    const parsed = await readJsonBody(req);
-    const { code, codeVerifier, redirectUri, clientId } = parsed;
+    cleanupExpiredSessions();
 
-    if (!code || !codeVerifier || !redirectUri || !clientId) {
+    const { code, sessionId, callbackUrl } = await readJsonBody(req);
+
+    if (!code || !sessionId) {
       return sendJson(res, 400, {
-        error: 'Missing required fields: code, codeVerifier, redirectUri, clientId'
+        success: false,
+        message: '缺少必要参数: code, sessionId'
+      });
+    }
+
+    const sessionData = OAUTH_SESSIONS.get(String(sessionId));
+    if (!sessionData) {
+      return sendJson(res, 400, {
+        success: false,
+        message: '会话已过期或无效，请重新生成授权链接'
       });
     }
 
@@ -122,17 +143,34 @@ async function handleTokenExchange(req, res) {
 
     const result = exchanged.result;
     return sendJson(res, 200, {
-      refreshToken: result.refresh_token,
-      accessToken: result.access_token,
-      expiresIn: result.expires_in,
-      tokenType: result.token_type,
-      scope: result.scope,
-      idToken: result.id_token
+      success: true,
+      data: {
+        tokens: {
+          idToken,
+          accessToken,
+          refreshToken,
+          expiresIn: expiresIn || 0
+        },
+        accountInfo: {
+          clientId: OPENAI_CONFIG.CLIENT_ID,
+          accountId: authClaims.chatgpt_account_id || '',
+          chatgptUserId: authClaims.chatgpt_user_id || authClaims.user_id || '',
+          organizationId: defaultOrg.id || '',
+          organizationRole: defaultOrg.role || '',
+          organizationTitle: defaultOrg.title || '',
+          planType: authClaims.chatgpt_plan_type || '',
+          email: payload.email || '',
+          name: payload.name || '',
+          emailVerified: payload.email_verified || false,
+          organizations
+        }
+      }
     });
   } catch (error) {
     return sendJson(res, 500, {
-      error: 'Unexpected server error',
-      details: error.message
+      success: false,
+      message: '交换授权码失败',
+      error: error.message
     });
   }
 }
@@ -166,8 +204,12 @@ function serveStatic(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.method === 'POST' && req.url === '/api/exchange') {
-    return handleTokenExchange(req, res);
+  if (req.method === 'POST' && req.url === '/api/generate-auth-url') {
+    return handleGenerateAuthUrl(req, res);
+  }
+
+  if (req.method === 'POST' && req.url === '/api/exchange-code') {
+    return handleExchangeCode(req, res);
   }
 
   if (req.method === 'GET') {

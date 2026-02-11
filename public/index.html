@@ -1,61 +1,122 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenAI Refresh Token 提取工具</title>
-    <link rel="stylesheet" href="/style.css" />
-  </head>
-  <body>
-    <main class="container">
-      <h1>OpenAI Refresh Token 提取工具</h1>
-      <p class="hint">
-        点击按钮后会直接弹出授权链接（无需填写任何信息）。<br />
-        把链接发给对方打开授权，再把完整回调 URL 粘贴回来，即可提取 refresh token。
-      </p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Helper</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f3f4f6; }
+        body { font-family: sans-serif; background: var(--bg); display: flex; justify-content: center; padding-top: 50px; margin: 0; }
+        .container { background: #fff; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); width: 400px; }
+        h2 { margin-top: 0; font-size: 1.2rem; color: #1f2937; margin-bottom: 1rem; }
+        .input-group { display: flex; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; margin-bottom: 1rem; }
+        input { flex: 1; padding: 10px; border: none; outline: none; color: #6b7280; text-overflow: ellipsis; }
+        button { cursor: pointer; border: none; font-size: 14px; }
+        .btn-copy { background: #f9fafb; color: var(--primary); padding: 0 15px; font-weight: 500; border-left: 1px solid #e5e7eb; }
+        .btn-copy:hover { background: #eff6ff; }
+        .btn-main { width: 100%; padding: 10px; background: var(--primary); color: white; border-radius: 6px; font-weight: bold; }
+        .btn-main:hover { background: #1d4ed8; }
+        .btn-main:disabled { background: #9ca3af; cursor: not-allowed; }
+        .hidden { display: none; }
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 8px 16px; border-radius: 4px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        #toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
 
-      <section class="card">
-        <h2>1) 生成并弹出授权链接</h2>
-        <div class="row one">
-          <button id="authorizeBtn">获取授权链接</button>
+<div class="container">
+    <h2>1. 获取授权链接</h2>
+    <button id="genBtn" class="btn-main">生成链接</button>
+    <div id="linkArea" class="input-group hidden" style="margin-top: 10px;">
+        <input type="text" id="authUrl" readonly>
+        <button class="btn-copy" onclick="copy('authUrl')">复制</button>
+    </div>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+    <h2>2. 提取 Refresh Token</h2>
+    <div class="input-group">
+        <input type="text" id="callbackUrl" placeholder="粘贴浏览器跳转后的完整 URL...">
+        <button class="btn-copy" onclick="document.getElementById('callbackUrl').value=''">清空</button>
+    </div>
+    <button id="extractBtn" class="btn-main">获取 Token</button>
+
+    <div id="resultArea" class="hidden" style="margin-top: 20px;">
+        <div class="input-group">
+            <input type="text" id="refreshToken" readonly placeholder="Refresh Token">
+            <button class="btn-copy" onclick="copy('refreshToken')">复制</button>
         </div>
-        <label>
-          授权链接（已固定 client_id / redirect_uri）
-          <textarea id="authUrl" readonly rows="5"></textarea>
-        </label>
-        <p class="mini">固定参数：client_id=app_EMoamEEZ73f0CkXaXp7hrann，redirect_uri=http://localhost:1455/auth/callback</p>
-      </section>
-
-      <section class="card">
-        <h2>2) 粘贴回调 URL 并提取</h2>
-        <label>
-          完整回调 URL（包含 code 参数）
-          <textarea id="callbackUrl" rows="4" placeholder="http://localhost:1455/auth/callback?code=...&state=..."></textarea>
-        </label>
-        <div class="row">
-          <button id="extractBtn">提取 refresh token</button>
-          <button id="clearBtn" class="secondary">清空流程</button>
         </div>
-      </section>
+</div>
 
-      <section class="card">
-        <h2>结果</h2>
-        <label>
-          Client ID
-          <input id="resultClientId" readonly />
-        </label>
-        <label>
-          Refresh Token
-          <textarea id="refreshToken" rows="4" readonly></textarea>
-        </label>
-        <label>
-          Access Token（可选）
-          <textarea id="accessToken" rows="3" readonly></textarea>
-        </label>
-        <pre id="status"></pre>
-      </section>
-    </main>
+<div id="toast">已复制</div>
 
-    <script src="/app.js"></script>
-  </body>
+<script>
+    let sessionId = localStorage.getItem('oauth_session_id');
+
+    function showToast(msg) {
+        const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+    }
+    function copy(id) {
+        const el = document.getElementById(id); el.select();
+        navigator.clipboard.writeText(el.value).then(() => showToast('复制成功'));
+    }
+
+    document.getElementById('genBtn').onclick = async () => {
+        try {
+            const res = await fetch('/api/generate-auth-url', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('authUrl').value = data.data.authUrl;
+                document.getElementById('linkArea').classList.remove('hidden');
+                sessionId = data.data.sessionId;
+                localStorage.setItem('oauth_session_id', sessionId);
+            }
+        } catch(e) { alert('生成失败'); }
+    };
+
+    document.getElementById('extractBtn').onclick = async () => {
+        const urlStr = document.getElementById('callbackUrl').value.trim();
+        if (!urlStr) return alert('请先粘贴链接');
+        
+        try {
+            // 简单清洗，允许用户只粘贴 ?code=... 之后的部分，或者完整 http 开头的链接
+            let code = '';
+            if (urlStr.includes('code=')) {
+                // 如果是完整 URL，尝试解析
+                try {
+                    const url = new URL(urlStr);
+                    code = url.searchParams.get('code');
+                } catch {
+                    // 如果 URL 解析失败，尝试简单截取
+                    const match = urlStr.match(/code=([^&]*)/);
+                    if (match) code = match[1];
+                }
+            } else {
+                // 假设用户直接粘贴了 code
+                code = urlStr;
+            }
+
+            if(!code) return alert('无法从链接中提取 code，请确认链接完整性');
+
+            const res = await fetch('/api/exchange-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, sessionId })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                document.getElementById('refreshToken').value = data.data.refresh_token;
+                // document.getElementById('accessToken').value = data.data.access_token;
+                document.getElementById('resultArea').classList.remove('hidden');
+                showToast('提取成功');
+            } else {
+                alert('提取失败: ' + data.message);
+            }
+        } catch(e) { alert('链接格式错误或网络异常'); }
+    };
+</script>
+</body>
 </html>

@@ -4,9 +4,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
 
+// [保持原样] 端口恢复为 3000
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+// [保持原样] 这里的端口是 1455，用于骗过 OpenAI 的白名单
 const OPENAI_CONFIG = {
   BASE_URL: process.env.OPENAI_BASE_URL || 'https://auth.openai.com',
   CLIENT_ID: process.env.OPENAI_CLIENT_ID || 'app_EMoamEEZ73f0CkXaXp7hrann',
@@ -25,24 +27,17 @@ const MIME_TYPES = {
 };
 
 function sendJson(res, statusCode, payload) {
-  res.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8'
-  });
+  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(payload));
 }
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-    });
+    req.on('data', chunk => body += chunk);
     req.on('end', () => {
-      try {
-        resolve(JSON.parse(body || '{}'));
-      } catch {
-        reject(new Error('Invalid JSON body'));
-      }
+      try { resolve(JSON.parse(body || '{}')); } 
+      catch { reject(new Error('Invalid JSON body')); }
     });
     req.on('error', reject);
   });
@@ -50,10 +45,8 @@ function readJsonBody(req) {
 
 function cleanupExpiredSessions() {
   const now = Date.now();
-  for (const [sessionId, session] of OAUTH_SESSIONS.entries()) {
-    if (session.expiresAt <= now) {
-      OAUTH_SESSIONS.delete(sessionId);
-    }
+  for (const [sid, session] of OAUTH_SESSIONS) {
+    if (session.expiresAt <= now) OAUTH_SESSIONS.delete(sid);
   }
 }
 
@@ -65,36 +58,22 @@ function generateOpenAIPKCE() {
 
 function decodeJwtPayload(token) {
   const parts = String(token || '').split('.');
-  if (parts.length !== 3) {
-    throw new Error('Invalid ID token format');
-  }
-
-  const payloadSegment = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-  const paddedPayload = payloadSegment.padEnd(Math.ceil(payloadSegment.length / 4) * 4, '=');
-  const decoded = Buffer.from(paddedPayload, 'base64').toString('utf-8');
-  return JSON.parse(decoded);
+  if (parts.length !== 3) throw new Error('Invalid ID token');
+  const payload = Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8');
+  return JSON.parse(payload);
 }
 
+// 路由处理
 async function handleGenerateAuthUrl(req, res) {
   try {
     cleanupExpiredSessions();
-
-    if (!OPENAI_CONFIG.REDIRECT_URI) {
-      return sendJson(res, 500, {
-        success: false,
-        message: 'OPENAI_REDIRECT_URI 未配置，无法生成授权链接'
-      });
-    }
-
     const pkce = generateOpenAIPKCE();
     const state = crypto.randomBytes(32).toString('hex');
     const sessionId = crypto.randomUUID();
 
     OAUTH_SESSIONS.set(sessionId, {
       codeVerifier: pkce.codeVerifier,
-      codeChallenge: pkce.codeChallenge,
       state,
-      createdAt: Date.now(),
       expiresAt: Date.now() + SESSION_TTL_MS
     });
 
@@ -110,193 +89,75 @@ async function handleGenerateAuthUrl(req, res) {
       codex_cli_simplified_flow: 'true'
     });
 
-    const authUrl = `${OPENAI_CONFIG.BASE_URL}/oauth/authorize?${params.toString()}`;
-
     return sendJson(res, 200, {
       success: true,
       data: {
-        authUrl,
-        sessionId,
-        instructions: [
-          '1. 复制上面的链接到浏览器中打开',
-          '2. 登录您的 OpenAI 账户',
-          '3. 同意应用权限',
-          '4. 复制浏览器地址栏中的完整 URL（包含 code 参数）',
-          '5. 在本网站粘贴完整回调 URL'
-        ]
+        authUrl: `${OPENAI_CONFIG.BASE_URL}/oauth/authorize?${params.toString()}`,
+        sessionId
       }
     });
-  } catch (error) {
-    return sendJson(res, 500, {
-      success: false,
-      message: '生成授权链接失败',
-      error: error.message
-    });
+  } catch (err) {
+    return sendJson(res, 500, { success: false, message: err.message });
   }
 }
 
 async function handleExchangeCode(req, res) {
   try {
-    cleanupExpiredSessions();
+    const { code, sessionId } = await readJsonBody(req);
+    const session = OAUTH_SESSIONS.get(String(sessionId));
 
-    const { code, sessionId, callbackUrl } = await readJsonBody(req);
+    if (!session) return sendJson(res, 400, { success: false, message: '会话无效或已过期' });
 
-    if (!code || !sessionId) {
-      return sendJson(res, 400, {
-        success: false,
-        message: '缺少必要参数: code, sessionId'
-      });
-    }
-
-    const sessionData = OAUTH_SESSIONS.get(String(sessionId));
-    if (!sessionData) {
-      return sendJson(res, 400, {
-        success: false,
-        message: '会话已过期或无效，请重新生成授权链接'
-      });
-    }
-
-    if (callbackUrl) {
-      const parsed = new URL(String(callbackUrl));
-      const stateFromCallback = parsed.searchParams.get('state');
-      if (stateFromCallback && stateFromCallback !== sessionData.state) {
-        return sendJson(res, 400, {
-          success: false,
-          message: 'state 不匹配，请使用同一次生成的授权链接与回调地址'
-        });
-      }
-    }
-
-    const tokenPayload = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: String(code).trim(),
-      redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
-      client_id: OPENAI_CONFIG.CLIENT_ID,
-      code_verifier: sessionData.codeVerifier
-    }).toString();
-
-    const tokenResponse = await fetch(`${OPENAI_CONFIG.BASE_URL}/oauth/token`, {
+    const tokenRes = await fetch(`${OPENAI_CONFIG.BASE_URL}/oauth/token`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: tokenPayload
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
+        client_id: OPENAI_CONFIG.CLIENT_ID,
+        code_verifier: session.codeVerifier
+      })
     });
 
-    let tokenJson;
-    try {
-      tokenJson = await tokenResponse.json();
-    } catch {
-      tokenJson = { error: 'Invalid token response' };
-    }
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok) return sendJson(res, 400, { success: false, message: 'OpenAI error', error: tokenData });
 
-    if (!tokenResponse.ok) {
-      return sendJson(res, tokenResponse.status || 500, {
-        success: false,
-        message: '交换授权码失败',
-        error: tokenJson
-      });
-    }
-
-    const {
-      id_token: idToken,
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_in: expiresIn
-    } = tokenJson || {};
-
-    if (!idToken || !accessToken) {
-      return sendJson(res, 500, {
-        success: false,
-        message: '未返回有效的授权令牌',
-        error: tokenJson
-      });
-    }
-
-    const payload = decodeJwtPayload(idToken);
-    const authClaims = payload['https://api.openai.com/auth'] || {};
-    const organizations = authClaims.organizations || [];
-    const defaultOrg = organizations.find((org) => org.is_default) || organizations[0] || {};
-
+    // [修改点] 这里我们不再把所有 info 发给前端，只发需要的
+    const payload = decodeJwtPayload(tokenData.id_token);
     OAUTH_SESSIONS.delete(String(sessionId));
 
     return sendJson(res, 200, {
       success: true,
       data: {
-        tokens: {
-          idToken,
-          accessToken,
-          refreshToken,
-          expiresIn: expiresIn || 0
-        },
-        accountInfo: {
-          clientId: OPENAI_CONFIG.CLIENT_ID,
-          accountId: authClaims.chatgpt_account_id || '',
-          chatgptUserId: authClaims.chatgpt_user_id || authClaims.user_id || '',
-          organizationId: defaultOrg.id || '',
-          organizationRole: defaultOrg.role || '',
-          organizationTitle: defaultOrg.title || '',
-          planType: authClaims.chatgpt_plan_type || '',
-          email: payload.email || '',
-          name: payload.name || '',
-          emailVerified: payload.email_verified || false,
-          organizations
-        }
+        // 只返回 Token 信息，不返回 client_id
+        refresh_token: tokenData.refresh_token,
+        access_token: tokenData.access_token,
+        expires_in: tokenData.expires_in,
+        user_email: payload.email 
       }
     });
-  } catch (error) {
-    return sendJson(res, 500, {
-      success: false,
-      message: '交换授权码失败',
-      error: error.message
-    });
+  } catch (err) {
+    return sendJson(res, 500, { success: false, message: err.message });
   }
 }
 
-function serveStatic(req, res) {
-  const reqUrl = new URL(req.url, `http://${req.headers.host}`);
-  let pathname = reqUrl.pathname;
-
-  if (pathname === '/') {
-    pathname = '/index.html';
-  }
-
-  const safePath = path.normalize(path.join(PUBLIC_DIR, pathname));
-  if (!safePath.startsWith(PUBLIC_DIR)) {
-    sendJson(res, 403, { error: 'Forbidden' });
-    return;
-  }
-
-  fs.readFile(safePath, (err, data) => {
-    if (err) {
-      sendJson(res, 404, { error: 'Not found' });
-      return;
-    }
-
-    const ext = path.extname(safePath);
-    res.writeHead(200, {
-      'Content-Type': MIME_TYPES[ext] || 'application/octet-stream'
-    });
-    res.end(data);
-  });
-}
-
+// 静态文件服务
 const server = http.createServer((req, res) => {
-  if (req.method === 'POST' && req.url === '/api/generate-auth-url') {
-    return handleGenerateAuthUrl(req, res);
-  }
+  if (req.method === 'POST' && req.url === '/api/generate-auth-url') return handleGenerateAuthUrl(req, res);
+  if (req.method === 'POST' && req.url === '/api/exchange-code') return handleExchangeCode(req, res);
+  
+  let filePath = path.join(PUBLIC_DIR, req.url === '/' ? 'index.html' : req.url);
+  if (!path.normalize(filePath).startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'Forbidden' });
 
-  if (req.method === 'POST' && req.url === '/api/exchange-code') {
-    return handleExchangeCode(req, res);
-  }
-
-  if (req.method === 'GET') {
-    return serveStatic(req, res);
-  }
-
-  sendJson(res, 405, { error: 'Method not allowed' });
+  fs.readFile(filePath, (err, content) => {
+    if (err) return sendJson(res, 404, { error: 'Not Found' });
+    const ext = path.extname(filePath);
+    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+    res.end(content);
+  });
 });
 
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`\n> 服务已启动: http://localhost:${PORT}\n`);
 });

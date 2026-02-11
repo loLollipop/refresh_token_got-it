@@ -91,9 +91,6 @@ Response: { "success": true, "data": { "authUrl": "...", "sessionId": "..." } }
 Endpoint: POST /api/exchange-code
 Body: { "code": "...", "sessionId": "..." }
 Response:
-```
-
-```JSON
 {
   "success": true,
   "data": {

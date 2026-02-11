@@ -1,7 +1,7 @@
-# OpenAI Refresh Token Helper
+# OpenAI Refresh Token
 
 这是一个安全、简洁的 OAuth2 Refresh Token 提取工具。
-本项目采用 **服务端会话 (Server-side Session) + PKCE** 流程，确保敏感信息（如 `code_verifier`）不暴露给前端，且最终结果已脱敏（自动移除 `client_id`）。
+本项目采用 **服务端会话 (Server-side Session) + PKCE** 流程，确保敏感信息不暴露给前端，且最终结果已脱敏。
 
 **本项目已针对 Zeabur 容器平台进行优化，可一键部署。**
 
@@ -24,7 +24,7 @@
 1.  登录 [Zeabur Dashboard](https://dash.zeabur.com)。
 2.  创建一个新项目 (Project)。
 3.  点击 **"新建服务" (New Service)** -> 选择 **"Git"**。
-4.  搜索并选择你刚才上传的 `refresh_token_got-it` 仓库。
+4.  搜索并选择你刚才上传的仓库。
 5.  点击部署，Zeabur 会自动识别 Node.js 环境并开始构建。
 
 ### 3. 配置域名 (关键)

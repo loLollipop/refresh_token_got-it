@@ -46,11 +46,11 @@ function buildAuthorizeUrl({ clientId, redirectUri, codeChallenge, state }) {
 
 function ensureRedirectUriDefault() {
   if (!redirectUriInput.value.trim()) {
-    redirectUriInput.value = `${window.location.origin}/auth/callback`;
+    redirectUriInput.value = 'http://localhost:1455/auth/callback';
   }
 }
 
-async function startAuthorizationFlow() {
+async function generateAuthorizationLink() {
   ensureRedirectUriDefault();
   const clientId = clientIdInput.value.trim();
   const redirectUri = redirectUriInput.value.trim();
@@ -77,8 +77,22 @@ async function startAuthorizationFlow() {
 
   const url = buildAuthorizeUrl({ clientId, redirectUri, codeChallenge, state });
   authUrlOutput.value = url;
-  setStatus('正在跳转到授权页面...');
-  window.location.href = url;
+  setStatus(
+    '授权链接已生成：请复制链接到浏览器授权；授权后复制完整回调 URL 粘贴到下方再兑换 token。'
+  );
+}
+
+async function copyAuthUrl() {
+  try {
+    const url = authUrlOutput.value.trim();
+    if (!url) {
+      throw new Error('请先点击“获取 refresh token 授权链接”。');
+    }
+    await navigator.clipboard.writeText(url);
+    setStatus('授权链接已复制到剪贴板。');
+  } catch (error) {
+    setStatus(error.message || '复制失败，请手动复制。', true);
+  }
 }
 
 function parseCallbackUrl(rawUrl) {
@@ -97,7 +111,7 @@ async function exchangeToken() {
   try {
     const flowRaw = localStorage.getItem(STORAGE_KEY);
     if (!flowRaw) {
-      throw new Error('未找到授权上下文，请先点击“获取授权链接并跳转”。');
+      throw new Error('未找到授权上下文，请先点击“获取 refresh token 授权链接”。');
     }
 
     const flow = JSON.parse(flowRaw);
@@ -142,31 +156,16 @@ async function exchangeToken() {
 }
 
 function clearAll() {
+  authUrlOutput.value = '';
   callbackUrlInput.value = '';
   refreshTokenOutput.value = '';
   accessTokenOutput.value = '';
   statusOutput.textContent = '';
 }
 
-async function autoHandleCallbackPage() {
-  const currentUrl = new URL(window.location.href);
-  const isCallback = currentUrl.pathname === '/auth/callback';
-  const hasCode = currentUrl.searchParams.has('code');
-
-  if (!isCallback || !hasCode) {
-    return;
-  }
-
-  callbackUrlInput.value = currentUrl.toString();
-  setStatus('检测到授权回调，正在自动兑换 token...');
-  await exchangeToken();
-
-  window.history.replaceState({}, document.title, '/');
-}
-
 ensureRedirectUriDefault();
-autoHandleCallbackPage();
 
-document.getElementById('authorizeBtn').addEventListener('click', startAuthorizationFlow);
+document.getElementById('authorizeBtn').addEventListener('click', generateAuthorizationLink);
+document.getElementById('copyAuthUrlBtn').addEventListener('click', copyAuthUrl);
 document.getElementById('extractBtn').addEventListener('click', exchangeToken);
 document.getElementById('clearBtn').addEventListener('click', clearAll);

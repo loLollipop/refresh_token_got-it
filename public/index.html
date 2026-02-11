@@ -10,32 +10,35 @@
     <main class="container">
       <h1>OpenAI Refresh Token 提取工具</h1>
       <p class="hint">
-        点击“获取授权链接并跳转”后会进入 OpenAI 授权页面。<br />
-        授权成功后将自动回跳到本站 <code>/auth/callback</code> 并自动提取 <code>code</code> 后兑换 token。
+        按照 chatgpt-team-helper 的手动流程：先生成授权链接并复制到浏览器授权，再把授权后的完整回调 URL 粘贴回来，自动提取
+        refresh token。
       </p>
 
       <section class="card">
-        <h2>1) 配置授权参数</h2>
+        <h2>1) 生成授权链接（手动复制）</h2>
         <label>
           Client ID
           <input id="clientId" value="app_EMoamEEZ73f0CkXaXp7hrann" />
         </label>
         <label>
           Redirect URI
-          <input id="redirectUri" placeholder="将自动填充为当前站点 /auth/callback" />
+          <input id="redirectUri" value="http://localhost:1455/auth/callback" />
         </label>
-        <button id="authorizeBtn">获取授权链接并跳转</button>
-        <details>
-          <summary>如果无法自动跳转，点击查看授权链接</summary>
+        <div class="row">
+          <button id="authorizeBtn">获取 refresh token 授权链接</button>
+          <button id="copyAuthUrlBtn" class="secondary">复制授权链接</button>
+        </div>
+        <label>
+          授权链接（复制后去浏览器打开）
           <textarea id="authUrl" readonly rows="4"></textarea>
-        </details>
+        </label>
       </section>
 
       <section class="card">
-        <h2>2) 回调与兑换</h2>
+        <h2>2) 粘贴回调 URL 并提取</h2>
         <label>
-          回调 URL（自动回跳后会自动填充）
-          <textarea id="callbackUrl" rows="4" placeholder="https://your-domain/auth/callback?code=...&state=..."></textarea>
+          完整回调 URL（包含 code 参数）
+          <textarea id="callbackUrl" rows="4" placeholder="http://localhost:1455/auth/callback?code=...&state=..."></textarea>
         </label>
         <div class="row">
           <button id="extractBtn">提取并兑换 Token</button>

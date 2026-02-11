@@ -1,10 +1,11 @@
 # refresh_token_got-it
 
-一个简单的网站工具：
+一个简单的网站工具，流程参考 `chatgpt-team-helper`：
 
-1. 点击按钮自动跳转到 OpenAI 授权页。
-2. 用户完成授权后自动回跳到本站 `/auth/callback`。
-3. 页面自动提取回调 URL 中的 `code` 并兑换 token，提取 `refresh_token`。
+1. 点击按钮生成 OpenAI OAuth 授权链接。
+2. 复制该链接到浏览器手动授权。
+3. 授权完成后复制浏览器地址栏中的完整回调 URL（含 `code` 参数）。
+4. 粘贴回本站，自动兑换并提取 `refresh_token`。
 
 ## 本地运行
 
@@ -17,15 +18,15 @@ npm start
 
 ## 使用步骤
 
-1. 打开页面，填写 `client_id`（默认值已按你给的示例预填）。
-2. `redirect_uri` 默认自动填充为当前网站地址：`https://你的域名/auth/callback`。
-3. 点击“获取授权链接并跳转”。
-4. 在 OpenAI 完成登录授权后，会自动回跳到本站回调地址。
-5. 页面会自动提取 `code` 并兑换，显示 `refresh token` 和 `access token`。
+1. 打开页面，确认 `client_id` 与 `redirect_uri`（默认 `http://localhost:1455/auth/callback`）。
+2. 点击“获取 refresh token 授权链接”。
+3. 点击“复制授权链接”，到浏览器打开并完成授权。
+4. 在浏览器授权完成页复制完整回调 URL。
+5. 回到本站粘贴回调 URL，点击“提取并兑换 Token”。
+6. 页面显示 `refresh token` 和 `access token`。
 
 ## 说明
 
-- 使用了 PKCE（`code_verifier` + `code_challenge`）保证授权流程完整。
-- 为避免浏览器跨域限制，token 兑换通过本项目后端 `/api/exchange` 转发到 `https://auth.openai.com/oauth/token`。
-- 服务端已将 `/auth/callback` 路由回同一个前端页面，配合前端自动完成回调处理。
+- 使用 PKCE（`code_verifier` + `code_challenge`）保证授权流程完整。
+- 为避免浏览器跨域限制，token 兑换通过后端 `/api/exchange` 转发到 `https://auth.openai.com/oauth/token`。
 - 请仅在你自己的可信环境部署和使用。

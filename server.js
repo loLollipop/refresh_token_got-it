@@ -91,7 +91,7 @@ function serveStatic(req, res) {
   const reqUrl = new URL(req.url, `http://${req.headers.host}`);
   let pathname = reqUrl.pathname;
 
-  if (pathname === '/' || pathname === '/auth/callback') {
+  if (pathname === '/') {
     pathname = '/index.html';
   }
 

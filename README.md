@@ -77,7 +77,7 @@ npm start
 ```
 访问地址：http://localhost:3000
 
-🔌 API 文档
+##🔌 API 文档
 1. 生成授权链接
 Endpoint: POST /api/generate-auth-url
 

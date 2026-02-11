@@ -79,16 +79,19 @@ npm start
 
 ## 🔌 API 文档
 1. 生成授权链接
-Endpoint: POST /api/generate-auth-url
 
+```
+Endpoint: POST /api/generate-auth-url
 Response: { "success": true, "data": { "authUrl": "...", "sessionId": "..." } }
+```
 
 2. 兑换 Token
+
+```
 Endpoint: POST /api/exchange-code
-
 Body: { "code": "...", "sessionId": "..." }
-
 Response:
+```
 
 ```JSON
 {

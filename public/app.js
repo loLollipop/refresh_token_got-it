@@ -18,13 +18,19 @@ function extractFirstUrl(text) {
   return match ? match[0] : raw;
 }
 
+function extractFirstUrl(text) {
+  const raw = String(text || '').trim();
+  const match = raw.match(/https?:\/\/[^\s]+/);
+  return match ? match[0] : raw;
+}
+
 function parseCallbackUrl(rawText) {
   const candidate = extractFirstUrl(rawText);
   const url = new URL(candidate);
   const code = url.searchParams.get('code');
 
   if (!code) {
-    throw new Error('回调 URL 中缺少 code 参数。请确认粘贴的是完整授权回调地址。');
+    throw new Error('回调 URL 中缺少 code 参数。请确认粘贴的是授权完成后的完整地址。');
   }
 
   return {
@@ -54,18 +60,8 @@ async function generateAuthorizationLink() {
     localStorage.setItem(SESSION_ID_KEY, sessionId);
     authUrlOutput.value = authUrl;
 
-    window.prompt('复制下面授权链接发给对方去授权：', authUrl);
-    setStatus('授权链接已弹出。请复制授权后回调 URL 粘贴到下方提取 refresh token。');
-  } catch (error) {
-    setStatus(error.message || '生成授权链接失败', true);
-  }
-}
-
-async function exchangeToken() {
-  try {
-    const sessionId = localStorage.getItem(SESSION_ID_KEY);
-    if (!sessionId) {
-      throw new Error('未找到会话，请先点击“获取授权链接”。');
+    if (flow.state && state && flow.state !== state) {
+      throw new Error('state 不匹配。请使用“最新一次点击生成”的授权链接对应的回调地址。');
     }
 
     const { code, callbackUrl } = parseCallbackUrl(callbackUrlInput.value);
@@ -91,8 +87,8 @@ async function exchangeToken() {
     refreshTokenOutput.value = tokens.refreshToken || '';
     accessTokenOutput.value = tokens.accessToken || '';
 
-    if (!tokens.refreshToken) {
-      setStatus('兑换成功，但未返回 refresh token。请确认授权已同意 offline_access。', true);
+    if (!data.refreshToken) {
+      setStatus('兑换成功，但接口未返回 refresh token。请检查是否已同意 offline_access。', true);
       return;
     }
 

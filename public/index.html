@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>令牌提取系统 // TOKEN_EXTRACTOR</title>
+    <title>OAUTH2_OVERRIDE_SYSTEM // TOKEN_EXTRACTOR</title>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -23,8 +23,7 @@
         }
 
         body {
-            /* 优先使用科技英文字体，中文回退到雅黑 */
-            font-family: 'Share Tech Mono', 'Microsoft YaHei', 'SimHei', sans-serif;
+            font-family: 'Share Tech Mono', monospace;
             background-color: var(--bg-color);
             color: var(--text-color);
             height: 100vh;
@@ -58,12 +57,7 @@
             color: var(--primary-color);
             letter-spacing: 2px;
             text-shadow: 0 0 10px var(--primary-color);
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
-
-        .brand span { font-size: 14px; opacity: 0.8; font-weight: normal; font-family: 'Share Tech Mono'; }
 
         .status-indicator {
             display: flex;
@@ -71,7 +65,6 @@
             gap: 10px;
             font-size: 14px;
             color: var(--success-color);
-            font-weight: bold;
         }
 
         .blink {
@@ -108,7 +101,7 @@
             border: 1px solid var(--accent-color);
             border-radius: 4px;
             padding: 20px;
-            font-family: 'Consolas', 'Monaco', 'Microsoft YaHei', monospace;
+            font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
             overflow-y: auto;
             box-shadow: 0 0 20px rgba(188, 19, 254, 0.2);
@@ -117,7 +110,7 @@
         }
         
         .terminal-panel::before {
-            content: "系统日志 // SYSTEM_LOG";
+            content: "SYSTEM_LOG // OUTPUT_STREAM";
             position: absolute;
             top: 0;
             left: 0;
@@ -129,7 +122,7 @@
         }
 
         .log-entry { margin-bottom: 8px; line-height: 1.4; }
-        .log-time { color: #666; margin-right: 10px; font-family: 'Share Tech Mono'; }
+        .log-time { color: #666; margin-right: 10px; }
         .log-info { color: var(--primary-color); }
         .log-success { color: var(--success-color); }
         .log-error { color: #ff0055; }
@@ -150,7 +143,7 @@
         }
 
         h2 {
-            font-family: 'Orbitron', 'Microsoft YaHei', sans-serif;
+            font-family: 'Orbitron', sans-serif;
             color: #fff;
             margin-bottom: 20px;
             font-size: 18px;
@@ -184,13 +177,13 @@
             background: transparent;
             border: none;
             color: var(--primary-color);
-            font-family: 'Share Tech Mono', 'Microsoft YaHei', monospace;
+            font-family: 'Share Tech Mono', monospace;
             font-size: 16px;
             padding: 10px 0;
             outline: none;
         }
 
-        input::placeholder { color: #555; font-style: italic; }
+        input::placeholder { color: #444; }
 
         /* 按钮组件 */
         .btn {
@@ -198,15 +191,14 @@
             border: 1px solid var(--primary-color);
             color: var(--primary-color);
             padding: 10px 25px;
-            font-family: 'Orbitron', 'Microsoft YaHei', sans-serif;
+            font-family: 'Orbitron', sans-serif;
             font-weight: bold;
-            font-size: 14px;
+            text-transform: uppercase;
             cursor: pointer;
             transition: 0.3s;
             position: relative;
             overflow: hidden;
             clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
-            white-space: nowrap;
         }
 
         .btn:hover:not(:disabled) {
@@ -227,6 +219,7 @@
             font-size: 12px;
             padding: 5px 15px;
             margin-left: 10px;
+            white-space: nowrap;
         }
         
         .btn-copy:hover {
@@ -252,7 +245,7 @@
             justify-content: flex-end;
             align-items: center;
             padding: 0 20px;
-            font-size: 12px;
+            font-size: 10px;
             color: #555;
             z-index: 10;
         }
@@ -282,8 +275,6 @@
             main { flex-direction: column; padding: 20px; overflow-y: auto; }
             .terminal-panel { min-height: 200px; }
             body { overflow: auto; }
-            header { padding: 0 20px; }
-            .brand span { display: none; }
         }
         
         .hidden { display: none; }
@@ -294,9 +285,9 @@
     <div class="scanlines"></div>
 
     <header>
-        <div class="brand">TOKEN 提取器 <span>v2.1 CN</span></div>
+        <div class="brand">TOKEN_EXTRACTOR <span style="font-size:0.5em; opacity:0.7">v2.0.45</span></div>
         <div class="status-indicator">
-            系统在线 <div class="blink"></div>
+            SYSTEM ONLINE <div class="blink"></div>
         </div>
     </header>
 
@@ -304,36 +295,36 @@
         <div class="control-panel">
             
             <section id="step1">
-                <h2>步骤 01 // 初始化授权</h2>
+                <h2>STEP 01 // INITIALIZE_AUTH</h2>
                 <div style="display: flex; gap: 20px; align-items: flex-end;">
-                    <button id="genBtn" class="btn">生成授权链接</button>
+                    <button id="genBtn" class="btn">EXECUTE SEQUENCE</button>
                     <div class="input-wrapper" style="flex: 1; display: none;" id="authUrlWrapper">
                         <input type="text" id="authUrl" readonly value="">
-                        <button class="btn btn-copy" onclick="copy('authUrl', '授权链接')">复制</button>
+                        <button class="btn btn-copy" onclick="copy('authUrl', 'AUTH_URL')">COPY</button>
                     </div>
                 </div>
             </section>
 
             <section id="step2">
-                <h2>步骤 02 // 注入回调数据</h2>
-                <p style="color: #666; font-size: 12px; margin-bottom: 10px;">> 等待用户输入 (请粘贴浏览器跳转后的完整 URL)...</p>
+                <h2>STEP 02 // INJECT_CALLBACK</h2>
+                <p style="color: #666; font-size: 12px; margin-bottom: 10px;">> WAITING FOR USER INPUT (PASTE FULL URL)...</p>
                 <div class="input-wrapper">
-                    <input type="text" id="callbackUrl" placeholder="在此粘贴 http://localhost:1455/... 完整链接">
-                    <button class="btn btn-copy" onclick="clearInput()">清空</button>
+                    <input type="text" id="callbackUrl" placeholder="Paste localhost URL here...">
+                    <button class="btn btn-copy" onclick="clearInput()">CLEAR</button>
                 </div>
                 <div style="margin-top: 20px;">
-                    <button id="extractBtn" class="btn" style="width: 100%">启动提取程序</button>
+                    <button id="extractBtn" class="btn" style="width: 100%">START EXTRACTION PROCESS</button>
                 </div>
             </section>
 
             <section id="resultArea" class="hidden result-box">
-                <h2 style="color: var(--success-color)">>> 操作成功 // 提取完成</h2>
+                <h2 style="color: var(--success-color)">>> OPERATION SUCCESSFUL</h2>
                 
                 <div style="margin-bottom: 15px;">
-                    <label style="font-size: 12px; color: var(--success-color); font-weight: bold;">REFRESH TOKEN (刷新令牌)</label>
+                    <label style="font-size: 12px; color: var(--success-color);">REFRESH_TOKEN</label>
                     <div class="input-wrapper">
                         <input type="text" id="refreshToken" readonly style="color: var(--success-color);">
-                        <button class="btn btn-copy" onclick="copy('refreshToken', 'Refresh Token')">复制</button>
+                        <button class="btn btn-copy" onclick="copy('refreshToken', 'REFRESH_TOKEN')">COPY</button>
                     </div>
                 </div>
             </section>
@@ -341,22 +332,22 @@
 
         <div class="terminal-panel" id="terminal">
             <div class="log-entry">
-                <span class="log-time">[系统]</span>
-                <span class="log-info">界面初始化完成...</span>
+                <span class="log-time">[SYSTEM]</span>
+                <span class="log-info">Interface initialized.</span>
             </div>
             <div class="log-entry">
-                <span class="log-time">[系统]</span>
-                <span class="log-info">已连接到服务器 (端口监听中)...</span>
+                <span class="log-time">[SYSTEM]</span>
+                <span class="log-info">Connected to server at port 3000.</span>
             </div>
             <div class="log-entry">
-                <span class="log-time">[系统]</span>
-                <span class="log-info">等待用户指令...</span>
+                <span class="log-time">[SYSTEM]</span>
+                <span class="log-info">Waiting for user command...</span>
             </div>
         </div>
     </main>
 
     <footer>
-        ZEABUR 部署 // 安全连接 // 禁止未经授权的访问
+        ZEABUR_DEPLOYMENT // SECURE_CONNECTION // UNAUTHORIZED_ACCESS_PROHIBITED
     </footer>
 
     <script>
@@ -368,7 +359,7 @@
             const entry = document.createElement('div');
             entry.className = 'log-entry';
             
-            const time = new Date().toLocaleTimeString('zh-CN', {hour12: false});
+            const time = new Date().toLocaleTimeString('en-US', {hour12: false});
             let typeClass = 'log-info';
             if (type === 'success') typeClass = 'log-success';
             if (type === 'error') typeClass = 'log-error';
@@ -376,22 +367,22 @@
 
             entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${typeClass}">${msg}</span>`;
             terminal.appendChild(entry);
-            terminal.scrollTop = terminal.scrollHeight; // 自动滚动到底部
+            terminal.scrollTop = terminal.scrollHeight; // Auto scroll
         }
 
         function copy(id, name) {
             const el = document.getElementById(id);
             el.select();
             navigator.clipboard.writeText(el.value).then(() => {
-                log(`剪贴板已更新: [${name}] 已复制`, 'success');
+                log(`Clipboard updated: ${name} copied.`, 'success');
             }).catch(err => {
-                log(`复制失败: ${err}`, 'error');
+                log(`Clipboard error: ${err}`, 'error');
             });
         }
 
         function clearInput() {
             document.getElementById('callbackUrl').value = '';
-            log('输入框已清空。', 'warn');
+            log('Input field cleared.', 'warn');
         }
 
         // 自动检测回调
@@ -399,7 +390,7 @@
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('code')) {
                 document.getElementById('callbackUrl').value = window.location.href;
-                log('自动检测到回调参数，准备提取...', 'success');
+                log('Callback detected automatically. Ready to extract.', 'success');
                 // 自动触发提取 (可选)
                 // document.getElementById('extractBtn').click();
             }
@@ -409,7 +400,7 @@
         document.getElementById('genBtn').onclick = async () => {
             const btn = document.getElementById('genBtn');
             btn.disabled = true;
-            log('正在启动授权序列...', 'info');
+            log('Initiating authentication sequence...', 'info');
 
             try {
                 const res = await fetch('/api/generate-auth-url', { method: 'POST' });
@@ -421,13 +412,13 @@
                     sessionId = data.data.sessionId;
                     localStorage.setItem('oauth_session_id', sessionId);
                     
-                    log('会话 ID 已生成: ' + sessionId.substring(0, 8) + '...', 'info');
-                    log('授权链接生成成功，等待用户授权。', 'success');
+                    log('Session ID generated: ' + sessionId.substring(0, 8) + '...', 'info');
+                    log('Auth URL generated successfully.', 'success');
                 } else {
-                    log('服务器错误: ' + data.message, 'error');
+                    log('Server error: ' + data.message, 'error');
                 }
             } catch(e) { 
-                log('网络连接失败，请检查服务器状态。', 'error');
+                log('Network connection failed.', 'error');
             } finally {
                 btn.disabled = false;
             }
@@ -437,11 +428,11 @@
         document.getElementById('extractBtn').onclick = async () => {
             const urlStr = document.getElementById('callbackUrl').value.trim();
             if (!urlStr) {
-                log('错误: 回调 URL 不能为空。', 'error');
+                log('Error: Callback URL is empty.', 'error');
                 return;
             }
             
-            log('正在解析回调数据...', 'info');
+            log('Parsing callback data...', 'info');
             
             try {
                 let code = '';
@@ -458,11 +449,11 @@
                 }
 
                 if(!code) {
-                    log('错误: 无法从链接中识别 Code 参数。', 'error');
+                    log('Error: Invalid auth code format.', 'error');
                     return;
                 }
 
-                log('正在向 OpenAI 交换令牌...', 'info');
+                log('Exchanging code for token...', 'info');
 
                 const res = await fetch('/api/exchange-code', {
                     method: 'POST',
@@ -475,14 +466,14 @@
                     document.getElementById('refreshToken').value = data.data.refresh_token;
                     document.getElementById('resultArea').classList.remove('hidden');
                     
-                    log('令牌交换成功！', 'success');
-                    log(`用户邮箱: ${data.data.user_email || '未知'}`, 'info');
-                    log('Refresh Token 已安全提取。', 'success');
+                    log('Token exchange successful.', 'success');
+                    log(`User Email: ${data.data.user_email || 'Unknown'}`, 'info');
+                    log('Refresh token secured.', 'success');
                 } else {
-                    log('交换失败: ' + data.message, 'error');
+                    log('Exchange failed: ' + data.message, 'error');
                 }
             } catch(e) { 
-                log('关键进程错误: ' + e.message, 'error');
+                log('Critical process error: ' + e.message, 'error');
             }
         };
     </script>

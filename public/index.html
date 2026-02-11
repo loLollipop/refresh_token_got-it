@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenAI Refresh Token 提取工具</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>OpenAI Refresh Token 提取工具</h1>
+      <p class="hint">
+        按照 chatgpt-team-helper 的手动流程：先生成授权链接并复制到浏览器授权，再把授权后的完整回调 URL 粘贴回来，自动提取
+        refresh token。
+      </p>
+
+      <section class="card">
+        <h2>1) 生成授权链接（手动复制）</h2>
+        <label>
+          Client ID
+          <input id="clientId" value="app_EMoamEEZ73f0CkXaXp7hrann" />
+        </label>
+        <label>
+          Redirect URI
+          <input id="redirectUri" value="http://localhost:1455/auth/callback" />
+        </label>
+        <div class="row">
+          <button id="authorizeBtn">获取 refresh token 授权链接</button>
+          <button id="copyAuthUrlBtn" class="secondary">复制授权链接</button>
+        </div>
+        <label>
+          授权链接（复制后去浏览器打开）
+          <textarea id="authUrl" readonly rows="4"></textarea>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>2) 粘贴回调 URL 并提取</h2>
+        <label>
+          完整回调 URL（包含 code 参数）
+          <textarea id="callbackUrl" rows="4" placeholder="http://localhost:1455/auth/callback?code=...&state=..."></textarea>
+        </label>
+        <div class="row">
+          <button id="extractBtn">提取并兑换 Token</button>
+          <button id="clearBtn" class="secondary">清空流程</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>结果</h2>
+        <label>
+          Refresh Token
+          <textarea id="refreshToken" rows="4" readonly></textarea>
+        </label>
+        <label>
+          Access Token（可选）
+          <textarea id="accessToken" rows="3" readonly></textarea>
+        </label>
+        <pre id="status"></pre>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

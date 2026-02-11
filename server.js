@@ -48,70 +48,94 @@ function readJsonBody(req) {
   });
 }
 
-async function exchangeCodeForToken({ code, codeVerifier, redirectUri, clientId }) {
-  const formPayload = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: redirectUri,
-    code_verifier: codeVerifier,
-    client_id: clientId
-  });
-
-  const formResponse = await fetch('https://auth.openai.com/oauth/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: formPayload.toString()
-  });
-
-  let formResult;
-  try {
-    formResult = await formResponse.json();
-  } catch {
-    formResult = { error: 'Invalid JSON response from auth server' };
-  }
-
-  if (formResponse.ok) {
-    return { ok: true, result: formResult };
-  }
-
-  const jsonResponse = await fetch('https://auth.openai.com/oauth/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-      code_verifier: codeVerifier,
-      client_id: clientId
-    })
-  });
-
-  let jsonResult;
-  try {
-    jsonResult = await jsonResponse.json();
-  } catch {
-    jsonResult = { error: 'Invalid JSON response from auth server' };
-  }
-
-  if (jsonResponse.ok) {
-    return { ok: true, result: jsonResult };
-  }
-
-  return {
-    ok: false,
-    status: jsonResponse.status || formResponse.status,
-    result: {
-      formAttempt: formResult,
-      jsonAttempt: jsonResult
+function cleanupExpiredSessions() {
+  const now = Date.now();
+  for (const [sessionId, session] of OAUTH_SESSIONS.entries()) {
+    if (session.expiresAt <= now) {
+      OAUTH_SESSIONS.delete(sessionId);
     }
-  };
+  }
 }
 
-async function handleTokenExchange(req, res) {
+function generateOpenAIPKCE() {
+  const codeVerifier = crypto.randomBytes(64).toString('hex');
+  const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+  return { codeVerifier, codeChallenge };
+}
+
+function decodeJwtPayload(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) {
+    throw new Error('Invalid ID token format');
+  }
+
+  const payloadSegment = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+  const paddedPayload = payloadSegment.padEnd(Math.ceil(payloadSegment.length / 4) * 4, '=');
+  const decoded = Buffer.from(paddedPayload, 'base64').toString('utf-8');
+  return JSON.parse(decoded);
+}
+
+async function handleGenerateAuthUrl(req, res) {
+  try {
+    cleanupExpiredSessions();
+
+    if (!OPENAI_CONFIG.REDIRECT_URI) {
+      return sendJson(res, 500, {
+        success: false,
+        message: 'OPENAI_REDIRECT_URI 未配置，无法生成授权链接'
+      });
+    }
+
+    const pkce = generateOpenAIPKCE();
+    const state = crypto.randomBytes(32).toString('hex');
+    const sessionId = crypto.randomUUID();
+
+    OAUTH_SESSIONS.set(sessionId, {
+      codeVerifier: pkce.codeVerifier,
+      codeChallenge: pkce.codeChallenge,
+      state,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + SESSION_TTL_MS
+    });
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: OPENAI_CONFIG.CLIENT_ID,
+      redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
+      scope: OPENAI_CONFIG.SCOPE,
+      code_challenge: pkce.codeChallenge,
+      code_challenge_method: 'S256',
+      state,
+      id_token_add_organizations: 'true',
+      codex_cli_simplified_flow: 'true'
+    });
+
+    const authUrl = `${OPENAI_CONFIG.BASE_URL}/oauth/authorize?${params.toString()}`;
+
+    return sendJson(res, 200, {
+      success: true,
+      data: {
+        authUrl,
+        sessionId,
+        instructions: [
+          '1. 复制上面的链接到浏览器中打开',
+          '2. 登录您的 OpenAI 账户',
+          '3. 同意应用权限',
+          '4. 复制浏览器地址栏中的完整 URL（包含 code 参数）',
+          '5. 在本网站粘贴完整回调 URL'
+        ]
+      }
+    });
+  } catch (error) {
+    return sendJson(res, 500, {
+      success: false,
+      message: '生成授权链接失败',
+      error: error.message
+    });
+  }
+}
+
+async function handleExchangeCode(req, res) {
   try {
     cleanupExpiredSessions();
 
@@ -132,16 +156,70 @@ async function handleTokenExchange(req, res) {
       });
     }
 
-    const exchanged = await exchangeCodeForToken({ code, codeVerifier, redirectUri, clientId });
+    if (callbackUrl) {
+      const parsed = new URL(String(callbackUrl));
+      const stateFromCallback = parsed.searchParams.get('state');
+      if (stateFromCallback && stateFromCallback !== sessionData.state) {
+        return sendJson(res, 400, {
+          success: false,
+          message: 'state 不匹配，请使用同一次生成的授权链接与回调地址'
+        });
+      }
+    }
 
-    if (!exchanged.ok) {
-      return sendJson(res, exchanged.status || 400, {
-        error: 'Token exchange failed',
-        details: exchanged.result
+    const tokenPayload = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: String(code).trim(),
+      redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
+      client_id: OPENAI_CONFIG.CLIENT_ID,
+      code_verifier: sessionData.codeVerifier
+    }).toString();
+
+    const tokenResponse = await fetch(`${OPENAI_CONFIG.BASE_URL}/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: tokenPayload
+    });
+
+    let tokenJson;
+    try {
+      tokenJson = await tokenResponse.json();
+    } catch {
+      tokenJson = { error: 'Invalid token response' };
+    }
+
+    if (!tokenResponse.ok) {
+      return sendJson(res, tokenResponse.status || 500, {
+        success: false,
+        message: '交换授权码失败',
+        error: tokenJson
       });
     }
 
-    const result = exchanged.result;
+    const {
+      id_token: idToken,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: expiresIn
+    } = tokenJson || {};
+
+    if (!idToken || !accessToken) {
+      return sendJson(res, 500, {
+        success: false,
+        message: '未返回有效的授权令牌',
+        error: tokenJson
+      });
+    }
+
+    const payload = decodeJwtPayload(idToken);
+    const authClaims = payload['https://api.openai.com/auth'] || {};
+    const organizations = authClaims.organizations || [];
+    const defaultOrg = organizations.find((org) => org.is_default) || organizations[0] || {};
+
+    OAUTH_SESSIONS.delete(String(sessionId));
+
     return sendJson(res, 200, {
       success: true,
       data: {

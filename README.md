@@ -31,12 +31,6 @@ npm start
 - `redirect_uri`: `http://localhost:1455/auth/callback`
 - `scope`: `openid profile email offline_access`
 
-## 提取失败排查
-
-- 每次点“获取授权链接”都会生成新的 `code_verifier/state`，必须使用这一条链接完成授权并粘贴对应回调。
-- 回调地址必须含 `code=...` 参数；可直接粘贴整段文字，页面会自动提取第一个 URL。
-- 后端兑换优先使用 `application/x-www-form-urlencoded`（与多数 OAuth 服务兼容），失败时自动再尝试 JSON。
-
 ## 说明
 
 - 会话默认 10 分钟过期。

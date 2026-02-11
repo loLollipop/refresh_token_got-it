@@ -1,11 +1,12 @@
 const STORAGE_KEY = 'openai_oauth_flow';
+const FIXED_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+const FIXED_REDIRECT_URI = 'http://localhost:1455/auth/callback';
 
-const clientIdInput = document.getElementById('clientId');
-const redirectUriInput = document.getElementById('redirectUri');
 const authUrlOutput = document.getElementById('authUrl');
 const callbackUrlInput = document.getElementById('callbackUrl');
 const refreshTokenOutput = document.getElementById('refreshToken');
 const accessTokenOutput = document.getElementById('accessToken');
+const resultClientIdInput = document.getElementById('resultClientId');
 const statusOutput = document.getElementById('status');
 
 function toBase64Url(bytes) {
@@ -30,11 +31,11 @@ function setStatus(message, isError = false) {
   statusOutput.className = isError ? 'error' : 'ok';
 }
 
-function buildAuthorizeUrl({ clientId, redirectUri, codeChallenge, state }) {
+function buildAuthorizeUrl({ codeChallenge, state }) {
   const url = new URL('https://auth.openai.com/oauth/authorize');
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('client_id', clientId);
-  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('client_id', FIXED_CLIENT_ID);
+  url.searchParams.set('redirect_uri', FIXED_REDIRECT_URI);
   url.searchParams.set('scope', 'openid profile email offline_access');
   url.searchParams.set('code_challenge', codeChallenge);
   url.searchParams.set('code_challenge_method', 'S256');
@@ -44,22 +45,7 @@ function buildAuthorizeUrl({ clientId, redirectUri, codeChallenge, state }) {
   return url.toString();
 }
 
-function ensureRedirectUriDefault() {
-  if (!redirectUriInput.value.trim()) {
-    redirectUriInput.value = 'http://localhost:1455/auth/callback';
-  }
-}
-
 async function generateAuthorizationLink() {
-  ensureRedirectUriDefault();
-  const clientId = clientIdInput.value.trim();
-  const redirectUri = redirectUriInput.value.trim();
-
-  if (!clientId || !redirectUri) {
-    setStatus('请先填写 Client ID 和 Redirect URI。', true);
-    return;
-  }
-
   const codeVerifier = randomString(72);
   const codeChallenge = await createPkceChallenge(codeVerifier);
   const state = randomString(32);
@@ -69,30 +55,17 @@ async function generateAuthorizationLink() {
     JSON.stringify({
       codeVerifier,
       state,
-      clientId,
-      redirectUri,
+      clientId: FIXED_CLIENT_ID,
+      redirectUri: FIXED_REDIRECT_URI,
       createdAt: Date.now()
     })
   );
 
-  const url = buildAuthorizeUrl({ clientId, redirectUri, codeChallenge, state });
+  const url = buildAuthorizeUrl({ codeChallenge, state });
   authUrlOutput.value = url;
-  setStatus(
-    '授权链接已生成：请复制链接到浏览器授权；授权后复制完整回调 URL 粘贴到下方再兑换 token。'
-  );
-}
 
-async function copyAuthUrl() {
-  try {
-    const url = authUrlOutput.value.trim();
-    if (!url) {
-      throw new Error('请先点击“获取 refresh token 授权链接”。');
-    }
-    await navigator.clipboard.writeText(url);
-    setStatus('授权链接已复制到剪贴板。');
-  } catch (error) {
-    setStatus(error.message || '复制失败，请手动复制。', true);
-  }
+  window.prompt('复制下面授权链接发给对方去授权：', url);
+  setStatus('授权链接已弹出，请复制并打开授权。授权后把完整回调 URL 粘贴回来提取。');
 }
 
 function parseCallbackUrl(rawUrl) {
@@ -111,7 +84,7 @@ async function exchangeToken() {
   try {
     const flowRaw = localStorage.getItem(STORAGE_KEY);
     if (!flowRaw) {
-      throw new Error('未找到授权上下文，请先点击“获取 refresh token 授权链接”。');
+      throw new Error('未找到授权上下文，请先点击“获取授权链接”。');
     }
 
     const flow = JSON.parse(flowRaw);
@@ -141,6 +114,7 @@ async function exchangeToken() {
       throw new Error(data.error + (data.details ? `: ${JSON.stringify(data.details)}` : ''));
     }
 
+    resultClientIdInput.value = flow.clientId;
     refreshTokenOutput.value = data.refreshToken || '';
     accessTokenOutput.value = data.accessToken || '';
 
@@ -149,7 +123,7 @@ async function exchangeToken() {
       return;
     }
 
-    setStatus('兑换成功，已提取 refresh token。');
+    setStatus('兑换成功，已提取 refresh token 和 client id。');
   } catch (error) {
     setStatus(error.message || '兑换失败', true);
   }
@@ -158,14 +132,14 @@ async function exchangeToken() {
 function clearAll() {
   authUrlOutput.value = '';
   callbackUrlInput.value = '';
+  resultClientIdInput.value = FIXED_CLIENT_ID;
   refreshTokenOutput.value = '';
   accessTokenOutput.value = '';
   statusOutput.textContent = '';
 }
 
-ensureRedirectUriDefault();
+resultClientIdInput.value = FIXED_CLIENT_ID;
 
 document.getElementById('authorizeBtn').addEventListener('click', generateAuthorizationLink);
-document.getElementById('copyAuthUrlBtn').addEventListener('click', copyAuthUrl);
 document.getElementById('extractBtn').addEventListener('click', exchangeToken);
 document.getElementById('clearBtn').addEventListener('click', clearAll);

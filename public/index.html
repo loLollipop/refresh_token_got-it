@@ -10,28 +10,20 @@
     <main class="container">
       <h1>OpenAI Refresh Token 提取工具</h1>
       <p class="hint">
-        按照 chatgpt-team-helper 的手动流程：先生成授权链接并复制到浏览器授权，再把授权后的完整回调 URL 粘贴回来，自动提取
-        refresh token。
+        点击按钮后会直接弹出授权链接（无需填写任何信息）。<br />
+        把链接发给对方打开授权，再把完整回调 URL 粘贴回来，即可提取 refresh token。
       </p>
 
       <section class="card">
-        <h2>1) 生成授权链接（手动复制）</h2>
-        <label>
-          Client ID
-          <input id="clientId" value="app_EMoamEEZ73f0CkXaXp7hrann" />
-        </label>
-        <label>
-          Redirect URI
-          <input id="redirectUri" value="http://localhost:1455/auth/callback" />
-        </label>
-        <div class="row">
-          <button id="authorizeBtn">获取 refresh token 授权链接</button>
-          <button id="copyAuthUrlBtn" class="secondary">复制授权链接</button>
+        <h2>1) 生成并弹出授权链接</h2>
+        <div class="row one">
+          <button id="authorizeBtn">获取授权链接</button>
         </div>
         <label>
-          授权链接（复制后去浏览器打开）
-          <textarea id="authUrl" readonly rows="4"></textarea>
+          授权链接（已固定 client_id / redirect_uri）
+          <textarea id="authUrl" readonly rows="5"></textarea>
         </label>
+        <p class="mini">固定参数：client_id=app_EMoamEEZ73f0CkXaXp7hrann，redirect_uri=http://localhost:1455/auth/callback</p>
       </section>
 
       <section class="card">
@@ -41,13 +33,17 @@
           <textarea id="callbackUrl" rows="4" placeholder="http://localhost:1455/auth/callback?code=...&state=..."></textarea>
         </label>
         <div class="row">
-          <button id="extractBtn">提取并兑换 Token</button>
+          <button id="extractBtn">提取 refresh token</button>
           <button id="clearBtn" class="secondary">清空流程</button>
         </div>
       </section>
 
       <section class="card">
         <h2>结果</h2>
+        <label>
+          Client ID
+          <input id="resultClientId" readonly />
+        </label>
         <label>
           Refresh Token
           <textarea id="refreshToken" rows="4" readonly></textarea>

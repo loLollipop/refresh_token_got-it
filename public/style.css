@@ -89,3 +89,13 @@ pre.ok {
 pre.error {
   color: #b42318;
 }
+
+.row.one {
+  grid-template-columns: 1fr;
+}
+
+.mini {
+  margin: 8px 0 0;
+  color: #475467;
+  font-size: 13px;
+}

@@ -1,0 +1,13 @@
+{
+  "name": "refresh-token-got-it",
+  "version": "1.0.0",
+  "description": "OpenAI OAuth helper to retrieve refresh tokens",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -329,6 +329,14 @@
 
             <section id="resultArea" class="hidden result-box">
                 <h2 style="color: var(--success-color)">>> OPERATION SUCCESSFUL</h2>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 12px; color: var(--accent-color); font-weight: bold;">CLIENT_ID</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="clientId" readonly style="color: var(--accent-color);">
+                        <button class="btn btn-copy" onclick="copy('clientId', 'CLIENT_ID')">复制</button>
+                    </div>
+                </div>
                 
                 <div style="margin-bottom: 15px;">
                     <label style="font-size: 12px; color: var(--success-color); font-weight: bold;">REFRESH_TOKEN</label>
@@ -370,6 +378,7 @@
 
     <script>
         let sessionId = localStorage.getItem('oauth_session_id');
+        const DEFAULT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 
         // 日志系统 (保持英文)
         function log(msg, type = 'info') {
@@ -481,6 +490,7 @@
                 const data = await res.json();
                 
                 if (data.success) {
+                    document.getElementById('clientId').value = data.data.client_id || DEFAULT_CLIENT_ID;
                     document.getElementById('refreshToken').value = data.data.refresh_token;
                     // 新增 Access Token 赋值
                     document.getElementById('accessToken').value = data.data.access_token || 'N/A';
@@ -488,6 +498,7 @@
                     document.getElementById('resultArea').classList.remove('hidden');
                     
                     log('Token exchange successful.', 'success');
+                    log('Client ID ready (from OAuth app config).', 'success');
                     log(`User Email: ${data.data.user_email || 'Unknown'}`, 'info');
                     log('Refresh token secured.', 'success');
                     log('Access token secured.', 'success');

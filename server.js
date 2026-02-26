@@ -9,9 +9,12 @@ const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // [保持原样] 这里的端口是 1455，用于骗过 OpenAI 的白名单
+const DEFAULT_OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+
 const OPENAI_CONFIG = {
   BASE_URL: process.env.OPENAI_BASE_URL || 'https://auth.openai.com',
-  CLIENT_ID: process.env.OPENAI_CLIENT_ID || 'app_EMoamEEZ73f0CkXaXp7hrann',
+  // client_id 统一固定为默认值，避免出现不可用的随机值或配置漂移
+  CLIENT_ID: DEFAULT_OPENAI_CLIENT_ID,
   REDIRECT_URI: process.env.OPENAI_REDIRECT_URI || 'http://localhost:1455/auth/callback',
   SCOPE: process.env.OPENAI_SCOPE || 'openid profile email offline_access'
 };
@@ -123,17 +126,17 @@ async function handleExchangeCode(req, res) {
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok) return sendJson(res, 400, { success: false, message: 'OpenAI error', error: tokenData });
 
-    // [修改点] 这里我们不再把所有 info 发给前端，只发需要的
     const payload = decodeJwtPayload(tokenData.id_token);
     OAUTH_SESSIONS.delete(String(sessionId));
 
     return sendJson(res, 200, {
       success: true,
       data: {
-        // 只返回 Token 信息，不返回 client_id
+        // 返回 Token 信息与 OAuth client_id
         refresh_token: tokenData.refresh_token,
         access_token: tokenData.access_token,
         expires_in: tokenData.expires_in,
+        client_id: OPENAI_CONFIG.CLIENT_ID,
         user_email: payload.email 
       }
     });

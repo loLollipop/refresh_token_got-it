@@ -96,6 +96,7 @@ Response:
   "data": {
     "refresh_token": "...",
     "access_token": "...",
+    "client_id": "app_EMoamEEZ73f0CkXaXp7hrann",
     "expires_in": 2592000,
     "user_email": "user@..."
   }

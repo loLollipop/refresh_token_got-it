@@ -66,6 +66,18 @@ function decodeJwtPayload(token) {
   return JSON.parse(payload);
 }
 
+async function parseJsonResponse(response) {
+  const rawText = await response.text();
+  if (!rawText) return {};
+
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    const snippet = rawText.slice(0, 200).replace(/\s+/g, ' ').trim();
+    throw new Error(`上游返回了非 JSON 响应（HTTP ${response.status}）：${snippet}`);
+  }
+}
+
 // 路由处理
 async function handleGenerateAuthUrl(req, res) {
   try {
@@ -123,7 +135,7 @@ async function handleExchangeCode(req, res) {
       })
     });
 
-    const tokenData = await tokenRes.json();
+    const tokenData = await parseJsonResponse(tokenRes);
     if (!tokenRes.ok) return sendJson(res, 400, { success: false, message: 'OpenAI error', error: tokenData });
 
     const payload = decodeJwtPayload(tokenData.id_token);

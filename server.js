@@ -13,8 +13,7 @@ const DEFAULT_OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 
 const OPENAI_CONFIG = {
   BASE_URL: process.env.OPENAI_BASE_URL || 'https://auth.openai.com',
-  // client_id 统一固定为默认值，避免出现不可用的随机值或配置漂移
-  CLIENT_ID: DEFAULT_OPENAI_CLIENT_ID,
+  CLIENT_ID: process.env.OPENAI_CLIENT_ID || DEFAULT_OPENAI_CLIENT_ID,
   REDIRECT_URI: process.env.OPENAI_REDIRECT_URI || 'http://localhost:1455/auth/callback',
   SCOPE: process.env.OPENAI_SCOPE || 'openid profile email offline_access'
 };
@@ -66,6 +65,25 @@ function decodeJwtPayload(token) {
   return JSON.parse(payload);
 }
 
+
+function resolveClientId(clientIdFromRequest) {
+  const candidate = String(clientIdFromRequest || '').trim();
+  if (candidate) return candidate;
+  return OPENAI_CONFIG.CLIENT_ID;
+}
+
+async function parseJsonResponse(response) {
+  const rawText = await response.text();
+  if (!rawText) return {};
+
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    const snippet = rawText.slice(0, 200).replace(/\s+/g, ' ').trim();
+    throw new Error(`上游返回了非 JSON 响应（HTTP ${response.status}）：${snippet}`);
+  }
+}
+
 // 路由处理
 async function handleGenerateAuthUrl(req, res) {
   try {
@@ -74,15 +92,19 @@ async function handleGenerateAuthUrl(req, res) {
     const state = crypto.randomBytes(32).toString('hex');
     const sessionId = crypto.randomUUID();
 
+    const { clientId } = await readJsonBody(req);
+    const resolvedClientId = resolveClientId(clientId);
+
     OAUTH_SESSIONS.set(sessionId, {
       codeVerifier: pkce.codeVerifier,
       state,
+      clientId: resolvedClientId,
       expiresAt: Date.now() + SESSION_TTL_MS
     });
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: OPENAI_CONFIG.CLIENT_ID,
+      client_id: resolvedClientId,
       redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
       scope: OPENAI_CONFIG.SCOPE,
       code_challenge: pkce.codeChallenge,
@@ -111,6 +133,8 @@ async function handleExchangeCode(req, res) {
 
     if (!session) return sendJson(res, 400, { success: false, message: '会话无效或已过期' });
 
+    const clientId = resolveClientId(session.clientId);
+
     const tokenRes = await fetch(`${OPENAI_CONFIG.BASE_URL}/oauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -118,13 +142,19 @@ async function handleExchangeCode(req, res) {
         grant_type: 'authorization_code',
         code,
         redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
-        client_id: OPENAI_CONFIG.CLIENT_ID,
+        client_id: clientId,
         code_verifier: session.codeVerifier
       })
     });
 
-    const tokenData = await tokenRes.json();
-    if (!tokenRes.ok) return sendJson(res, 400, { success: false, message: 'OpenAI error', error: tokenData });
+    const tokenData = await parseJsonResponse(tokenRes);
+    if (!tokenRes.ok) {
+      const statusCode = tokenRes.status === 429 ? 429 : 400;
+      const message = tokenRes.status === 429
+        ? 'OpenAI 限流（429）。请稍后重试，或使用你自己的 OPENAI_CLIENT_ID / 代理后再试。'
+        : 'OpenAI error';
+      return sendJson(res, statusCode, { success: false, message, error: tokenData });
+    }
 
     const payload = decodeJwtPayload(tokenData.id_token);
     OAUTH_SESSIONS.delete(String(sessionId));
@@ -136,7 +166,7 @@ async function handleExchangeCode(req, res) {
         refresh_token: tokenData.refresh_token,
         access_token: tokenData.access_token,
         expires_in: tokenData.expires_in,
-        client_id: OPENAI_CONFIG.CLIENT_ID,
+        client_id: clientId,
         user_email: payload.email 
       }
     });

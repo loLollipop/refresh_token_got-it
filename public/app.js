@@ -33,6 +33,18 @@ function parseCallbackUrl(rawText) {
   };
 }
 
+async function parseApiResponse(resp) {
+  const rawText = await resp.text();
+  if (!rawText) return {};
+
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    const snippet = rawText.slice(0, 200).replace(/\s+/g, ' ').trim();
+    throw new Error(`服务器返回了非 JSON 响应（HTTP ${resp.status}）：${snippet}`);
+  }
+}
+
 async function generateAuthorizationLink() {
   try {
     setStatus('正在生成授权链接...');
@@ -45,7 +57,7 @@ async function generateAuthorizationLink() {
       body: JSON.stringify({})
     });
 
-    const data = await resp.json();
+    const data = await parseApiResponse(resp);
     if (!resp.ok || !data.success) {
       throw new Error(data.message || '生成授权链接失败');
     }
@@ -79,13 +91,19 @@ async function exchangeToken() {
       body: JSON.stringify({ code, sessionId, callbackUrl })
     });
 
-    const data = await resp.json();
+    const data = await parseApiResponse(resp);
     if (!resp.ok || !data.success) {
       throw new Error(data.message + (data.error ? `: ${JSON.stringify(data.error)}` : ''));
     }
 
-    const tokens = data.data.tokens || {};
-    const accountInfo = data.data.accountInfo || {};
+    const apiData = data.data || {};
+    const tokens = apiData.tokens || {
+      refreshToken: apiData.refresh_token,
+      accessToken: apiData.access_token
+    };
+    const accountInfo = apiData.accountInfo || {
+      clientId: apiData.client_id
+    };
 
     resultClientIdInput.value = accountInfo.clientId || '';
     refreshTokenOutput.value = tokens.refreshToken || '';

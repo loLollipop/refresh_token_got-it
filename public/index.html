@@ -412,6 +412,19 @@
             log('Input field cleared.', 'warn');
         }
 
+
+        async function parseApiResponse(res) {
+            const rawText = await res.text();
+            if (!rawText) return {};
+
+            try {
+                return JSON.parse(rawText);
+            } catch {
+                const snippet = rawText.slice(0, 180).replace(/\s+/g, ' ').trim();
+                throw new Error(`Server returned non-JSON response (HTTP ${res.status}): ${snippet}`);
+            }
+        }
+
         // 自动检测回调
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -430,8 +443,12 @@
             log('Initiating authentication sequence...', 'info');
 
             try {
-                const res = await fetch('/api/generate-auth-url', { method: 'POST' });
-                const data = await res.json();
+                const res = await fetch('/api/generate-auth-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await parseApiResponse(res);
                 
                 if (data.success) {
                     document.getElementById('authUrl').value = data.data.authUrl;
@@ -487,7 +504,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code, sessionId })
                 });
-                const data = await res.json();
+                const data = await parseApiResponse(res);
                 
                 if (data.success) {
                     document.getElementById('clientId').value = data.data.client_id || DEFAULT_CLIENT_ID;
@@ -503,7 +520,11 @@
                     log('Refresh token secured.', 'success');
                     log('Access token secured.', 'success');
                 } else {
-                    log('Exchange failed: ' + data.message, 'error');
+                    const extra = data?.error?.error_description || data?.error?.message || '';
+                    log('Exchange failed: ' + data.message + (extra ? ` | ${extra}` : ''), 'error');
+                    if (res.status === 429) {
+                        log('429 rate limit from OpenAI. Please retry later, or configure OPENAI_CLIENT_ID/OPENAI_PROXY.', 'warn');
+                    }
                 }
             } catch(e) { 
                 log('Critical process error: ' + e.message, 'error');
